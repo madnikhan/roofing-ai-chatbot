@@ -9,10 +9,21 @@ export async function getLeads(): Promise<Lead[]> {
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
       try {
         const { kv } = await import('@vercel/kv');
-        const leads = await kv.get<Lead[]>(LEADS_KEY);
-        return leads || [];
+        const leadsData = await kv.get<Lead[]>(LEADS_KEY);
+        
+        if (!leadsData) {
+          return [];
+        }
+        
+        // Convert date strings back to Date objects
+        return leadsData.map((lead: any) => ({
+          ...lead,
+          createdAt: lead.createdAt ? new Date(lead.createdAt) : new Date(),
+        }));
       } catch (error) {
-        console.error('Vercel KV error, falling back to file system:', error);
+        console.error('Vercel KV error:', error);
+        // Don't fall back silently - let the error bubble up
+        throw error;
       }
     }
     
@@ -48,11 +59,20 @@ export async function saveLead(lead: Lead): Promise<void> {
       try {
         const { kv } = await import('@vercel/kv');
         const leads = await getLeads();
-        leads.push(lead);
+        
+        // Serialize lead (convert Date to string for storage)
+        const serializedLead = {
+          ...lead,
+          createdAt: lead.createdAt instanceof Date ? lead.createdAt.toISOString() : lead.createdAt,
+        };
+        
+        leads.push(serializedLead as any);
         await kv.set(LEADS_KEY, leads);
         return;
       } catch (error) {
-        console.error('Vercel KV error, falling back to file system:', error);
+        console.error('Vercel KV save error:', error);
+        // Don't fall back silently - let the error bubble up
+        throw error;
       }
     }
     
@@ -84,7 +104,15 @@ export async function updateLead(id: string, updates: Partial<Lead>): Promise<vo
     const index = leads.findIndex((lead) => lead.id === id);
     
     if (index !== -1) {
-      leads[index] = { ...leads[index], ...updates };
+      const updatedLead = { ...leads[index], ...updates };
+      
+      // Serialize updated lead (convert Date to string for storage)
+      const serializedLead = {
+        ...updatedLead,
+        createdAt: updatedLead.createdAt instanceof Date ? updatedLead.createdAt.toISOString() : updatedLead.createdAt,
+      };
+      
+      leads[index] = serializedLead as any;
       
       // Try to use Vercel KV if available (only on Vercel)
       if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
@@ -93,7 +121,9 @@ export async function updateLead(id: string, updates: Partial<Lead>): Promise<vo
           await kv.set(LEADS_KEY, leads);
           return;
         } catch (error) {
-          console.error('Vercel KV error, falling back to file system:', error);
+          console.error('Vercel KV update error:', error);
+          // Don't fall back silently - let the error bubble up
+          throw error;
         }
       }
       

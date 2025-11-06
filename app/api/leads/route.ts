@@ -7,11 +7,13 @@ import { generateId } from '@/lib/utils';
 export async function GET() {
   try {
     const leads = await getLeads();
+    console.log(`[API] Fetched ${leads.length} leads`);
+    console.log(`[API] KV_URL: ${process.env.KV_REST_API_URL ? 'Set' : 'Not set'}`);
     return NextResponse.json(leads);
   } catch (error) {
-    console.error('Error fetching leads:', error);
+    console.error('[API] Error fetching leads:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch leads' },
+      { error: 'Failed to fetch leads', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
@@ -78,11 +80,12 @@ export async function POST(request: NextRequest) {
       await saveLead(lead);
     }
 
+    console.log(`[API] ${isUpdate ? 'Updated' : 'Saved'} lead: ${lead.name} (${lead.id})`);
     return NextResponse.json(lead, { status: isUpdate ? 200 : 201 });
   } catch (error) {
-    console.error('Error saving lead:', error);
+    console.error('[API] Error saving lead:', error);
     return NextResponse.json(
-      { error: 'Failed to save lead' },
+      { error: 'Failed to save lead', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

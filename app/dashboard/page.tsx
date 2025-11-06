@@ -62,21 +62,33 @@ export default function DashboardPage() {
     try {
       const response = await fetch('/api/leads', {
         cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to load leads: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to load leads: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('[Dashboard] Loaded leads:', data.length);
+      
+      if (!Array.isArray(data)) {
+        console.error('[Dashboard] Expected array but got:', typeof data, data);
+        setLeads([]);
+        return;
+      }
+
       setLeads(
         data.map((lead: any) => ({
           ...lead,
-          createdAt: new Date(lead.createdAt),
+          createdAt: lead.createdAt ? new Date(lead.createdAt) : new Date(),
         }))
       );
     } catch (error) {
-      console.error('Error loading leads:', error);
+      console.error('[Dashboard] Error loading leads:', error);
       setLoadError(
         error instanceof Error
           ? error.message

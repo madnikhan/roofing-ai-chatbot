@@ -167,14 +167,14 @@ export async function POST(request: NextRequest) {
     const detectedField = detectQualificationField(message, updatedConversation.currentStep);
     
     // Determine if we should show qualification form
-    const shouldShowQualification = 
+    const shouldShowQualification: boolean = 
       isEmergency || 
-      emergencyLevel >= 3 ||
+      (emergencyLevel ?? 0) >= 3 ||
       (updatedConversation.currentStep === 'qualification') ||
-      (messageHistory && messageHistory.length >= 2);
+      (messageHistory ? messageHistory.length >= 2 : false);
 
     // Get next conversation step
-    const nextStep = getNextStep(updatedConversation.currentStep, message);
+    const nextStep: 'greeting' | 'qualification' | 'scheduling' | 'completed' = getNextStep(updatedConversation.currentStep, message);
     updatedConversation.currentStep = nextStep;
 
     // Get qualification step if in qualification flow

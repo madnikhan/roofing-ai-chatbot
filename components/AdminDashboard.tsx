@@ -83,7 +83,7 @@ export default function AdminDashboard({
         lead.phone.includes(searchTerm) ||
         lead.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.problem.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase()));
+        (lead.email ? lead.email.toLowerCase().includes(searchTerm.toLowerCase()) : false);
 
       return matchesStatusFilter && matchesEmergencyFilter && matchesSearch;
     });

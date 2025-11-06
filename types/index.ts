@@ -24,6 +24,12 @@ export interface Lead {
   availability?: string;
   scheduledTime?: string;
   createdAt: Date;
+  email?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  propertyType?: string;
+  preferredTime?: string;
 }
 
 export interface TimeSlot {

@@ -17,27 +17,68 @@ export async function GET() {
   }
 }
 
-// POST - Create a new lead
+// POST - Create a new lead or update existing one
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
 
-    const lead: Lead = {
-      id: generateId(),
-      name: data.name,
-      phone: data.phone,
-      address: data.address,
-      problem: data.problem,
-      emergencyLevel: data.emergencyLevel || 1,
-      status: 'new',
-      preferredContact: data.preferredContact || 'phone',
-      availability: data.availability,
-      scheduledTime: data.scheduledTime,
-      createdAt: new Date(),
-    };
+    // Check if lead already exists (by phone or email)
+    const existingLeads = await getLeads();
+    const existingLead = existingLeads.find(
+      (lead) => lead.phone === data.phone || (data.email && lead.email === data.email)
+    );
 
-    await saveLead(lead);
-    return NextResponse.json(lead, { status: 201 });
+    let lead: Lead;
+    let isUpdate = false;
+
+    if (existingLead) {
+      // Update existing lead with new information
+      isUpdate = true;
+      lead = {
+        ...existingLead,
+        name: data.name || existingLead.name,
+        address: data.address || existingLead.address,
+        problem: data.problem || existingLead.problem,
+        emergencyLevel: data.emergencyLevel || existingLead.emergencyLevel,
+        status: data.status || existingLead.status,
+        preferredContact: data.preferredContact || existingLead.preferredContact,
+        availability: data.availability || existingLead.availability,
+        scheduledTime: data.scheduledTime || existingLead.scheduledTime,
+        email: data.email || existingLead.email,
+        city: data.city || existingLead.city,
+        state: data.state || existingLead.state,
+        zipCode: data.zipCode || existingLead.zipCode,
+        propertyType: data.propertyType || existingLead.propertyType,
+        preferredTime: data.preferredTime || existingLead.preferredTime,
+      };
+
+      await updateLead(existingLead.id, lead);
+    } else {
+      // Create new lead
+      lead = {
+        id: generateId(),
+        name: data.name,
+        phone: data.phone,
+        address: data.address,
+        problem: data.problem,
+        emergencyLevel: data.emergencyLevel || 1,
+        status: data.status || 'new',
+        preferredContact: data.preferredContact || 'phone',
+        availability: data.availability,
+        scheduledTime: data.scheduledTime,
+        email: data.email,
+        city: data.city,
+        state: data.state,
+        zipCode: data.zipCode,
+        propertyType: data.propertyType,
+        preferredTime: data.preferredTime,
+        createdAt: new Date(),
+      };
+
+      await saveLead(lead);
+    }
+
+    return NextResponse.json(lead, { status: isUpdate ? 200 : 201 });
   } catch (error) {
     console.error('Error saving lead:', error);
     return NextResponse.json(

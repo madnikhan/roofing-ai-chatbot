@@ -25,6 +25,7 @@ export default function ChatInterface({ onLeadCaptured }: ChatInterfaceProps) {
   const [emergencyLevel, setEmergencyLevel] = useState(0);
   const [showQualification, setShowQualification] = useState(false);
   const [showScheduling, setShowScheduling] = useState(false);
+  const [currentLeadData, setCurrentLeadData] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -131,8 +132,11 @@ export default function ChatInterface({ onLeadCaptured }: ChatInterfaceProps) {
   const handleQualificationComplete = async (leadData: any) => {
     setShowQualification(false);
     setShowScheduling(true);
+    
+    // Store lead data for later use when scheduling completes
+    setCurrentLeadData(leadData);
 
-    // Send lead to API
+    // Send initial lead to API (without scheduling info yet)
     if (onLeadCaptured) {
       onLeadCaptured(leadData);
     }
@@ -149,6 +153,22 @@ export default function ChatInterface({ onLeadCaptured }: ChatInterfaceProps) {
 
   const handleSchedule = async (date: string, time: string) => {
     setShowScheduling(false);
+    
+    // Update lead data with scheduling information
+    if (currentLeadData) {
+      const completeLeadData = {
+        ...currentLeadData,
+        scheduledTime: `${date} ${time}`,
+        availability: `${date} ${time}`,
+        status: 'scheduled' as const,
+      };
+
+      // Save complete lead with scheduling info
+      if (onLeadCaptured) {
+        onLeadCaptured(completeLeadData);
+      }
+    }
+
     const confirmation: Message = {
       id: generateId(),
       text: `Perfect! Your appointment is scheduled for ${new Date(date).toLocaleDateString()} at ${time}. We'll contact you at your preferred method. Thank you!`,

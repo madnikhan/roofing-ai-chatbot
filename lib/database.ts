@@ -1,17 +1,42 @@
 import { Lead } from '@/types';
+import { getRedisClient, connectRedis } from './redis';
 
 const LEADS_KEY = 'leads';
 
 // Read leads from Redis (Vercel KV or other Redis)
 export async function getLeads(): Promise<Lead[]> {
   try {
-    // Try to use Redis if available (Vercel KV or other Redis)
-    const redisUrl = process.env.KV_REST_API_URL || process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
-    const redisToken = process.env.KV_REST_API_TOKEN || process.env.REDIS_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+    // Try direct Redis connection first (ioredis)
+    const redisClient = getRedisClient();
+    if (redisClient) {
+      try {
+        await connectRedis();
+        const leadsDataStr = await redisClient.get(LEADS_KEY);
+        
+        if (!leadsDataStr) {
+          return [];
+        }
+        
+        const leadsData = JSON.parse(leadsDataStr) as Lead[];
+        
+        // Convert date strings back to Date objects
+        return leadsData.map((lead: any) => ({
+          ...lead,
+          createdAt: lead.createdAt ? new Date(lead.createdAt) : new Date(),
+        }));
+      } catch (error) {
+        console.error('Direct Redis connection error:', error);
+        // Fall through to try REST API
+      }
+    }
+
+    // Try REST API (Vercel KV or Upstash)
+    const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+    const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
     
     if (redisUrl && redisToken) {
       try {
-        // Try Vercel KV first (@vercel/kv)
+        // Try Vercel KV REST API (@vercel/kv)
         const { kv } = await import('@vercel/kv');
         const leadsData = await kv.get<Lead[]>(LEADS_KEY);
         
@@ -25,8 +50,7 @@ export async function getLeads(): Promise<Lead[]> {
           createdAt: lead.createdAt ? new Date(lead.createdAt) : new Date(),
         }));
       } catch (error) {
-        console.error('Redis connection error:', error);
-        // Don't fall back silently - let the error bubble up
+        console.error('Redis REST API error:', error);
         throw error;
       }
     }
@@ -58,13 +82,35 @@ export async function getLeads(): Promise<Lead[]> {
 // Save a new lead
 export async function saveLead(lead: Lead): Promise<void> {
   try {
-    // Try to use Redis if available (Vercel KV or other Redis)
-    const redisUrl = process.env.KV_REST_API_URL || process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
-    const redisToken = process.env.KV_REST_API_TOKEN || process.env.REDIS_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+    // Try direct Redis connection first (ioredis)
+    const redisClient = getRedisClient();
+    if (redisClient) {
+      try {
+        await connectRedis();
+        const leads = await getLeads();
+        
+        // Serialize lead (convert Date to string for storage)
+        const serializedLead = {
+          ...lead,
+          createdAt: lead.createdAt instanceof Date ? lead.createdAt.toISOString() : lead.createdAt,
+        };
+        
+        leads.push(serializedLead as any);
+        await redisClient.set(LEADS_KEY, JSON.stringify(leads));
+        return;
+      } catch (error) {
+        console.error('Direct Redis save error:', error);
+        // Fall through to try REST API
+      }
+    }
+
+    // Try REST API (Vercel KV or Upstash)
+    const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+    const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
     
     if (redisUrl && redisToken) {
       try {
-        // Try Vercel KV first (@vercel/kv)
+        // Try Vercel KV REST API (@vercel/kv)
         const { kv } = await import('@vercel/kv');
         const leads = await getLeads();
         
@@ -78,8 +124,7 @@ export async function saveLead(lead: Lead): Promise<void> {
         await kv.set(LEADS_KEY, leads);
         return;
       } catch (error) {
-        console.error('Redis save error:', error);
-        // Don't fall back silently - let the error bubble up
+        console.error('Redis REST API save error:', error);
         throw error;
       }
     }
@@ -122,19 +167,31 @@ export async function updateLead(id: string, updates: Partial<Lead>): Promise<vo
       
       leads[index] = serializedLead as any;
       
-      // Try to use Redis if available (Vercel KV or other Redis)
-      const redisUrl = process.env.KV_REST_API_URL || process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
-      const redisToken = process.env.KV_REST_API_TOKEN || process.env.REDIS_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+      // Try direct Redis connection first (ioredis)
+      const redisClient = getRedisClient();
+      if (redisClient) {
+        try {
+          await connectRedis();
+          await redisClient.set(LEADS_KEY, JSON.stringify(leads));
+          return;
+        } catch (error) {
+          console.error('Direct Redis update error:', error);
+          // Fall through to try REST API
+        }
+      }
+
+      // Try REST API (Vercel KV or Upstash)
+      const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+      const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
       
       if (redisUrl && redisToken) {
         try {
-          // Try Vercel KV first (@vercel/kv)
+          // Try Vercel KV REST API (@vercel/kv)
           const { kv } = await import('@vercel/kv');
           await kv.set(LEADS_KEY, leads);
           return;
         } catch (error) {
-          console.error('Redis update error:', error);
-          // Don't fall back silently - let the error bubble up
+          console.error('Redis REST API update error:', error);
           throw error;
         }
       }
@@ -159,19 +216,31 @@ export async function deleteLead(id: string): Promise<void> {
     const leads = await getLeads();
     const filteredLeads = leads.filter((lead) => lead.id !== id);
     
-    // Try to use Redis if available (Vercel KV or other Redis)
-    const redisUrl = process.env.KV_REST_API_URL || process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
-    const redisToken = process.env.KV_REST_API_TOKEN || process.env.REDIS_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+    // Try direct Redis connection first (ioredis)
+    const redisClient = getRedisClient();
+    if (redisClient) {
+      try {
+        await connectRedis();
+        await redisClient.set(LEADS_KEY, JSON.stringify(filteredLeads));
+        return;
+      } catch (error) {
+        console.error('Direct Redis delete error:', error);
+        // Fall through to try REST API
+      }
+    }
+
+    // Try REST API (Vercel KV or Upstash)
+    const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+    const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
     
     if (redisUrl && redisToken) {
       try {
-        // Try Vercel KV first (@vercel/kv)
+        // Try Vercel KV REST API (@vercel/kv)
         const { kv } = await import('@vercel/kv');
         await kv.set(LEADS_KEY, filteredLeads);
         return;
       } catch (error) {
-        console.error('Redis delete error:', error);
-        // Don't fall back silently - let the error bubble up
+        console.error('Redis REST API delete error:', error);
         throw error;
       }
     }

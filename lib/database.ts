@@ -2,12 +2,16 @@ import { Lead } from '@/types';
 
 const LEADS_KEY = 'leads';
 
-// Read leads from Vercel KV
+// Read leads from Redis (Vercel KV or other Redis)
 export async function getLeads(): Promise<Lead[]> {
   try {
-    // Try to use Vercel KV if available (only on Vercel)
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    // Try to use Redis if available (Vercel KV or other Redis)
+    const redisUrl = process.env.KV_REST_API_URL || process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
+    const redisToken = process.env.KV_REST_API_TOKEN || process.env.REDIS_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+    
+    if (redisUrl && redisToken) {
       try {
+        // Try Vercel KV first (@vercel/kv)
         const { kv } = await import('@vercel/kv');
         const leadsData = await kv.get<Lead[]>(LEADS_KEY);
         
@@ -21,7 +25,7 @@ export async function getLeads(): Promise<Lead[]> {
           createdAt: lead.createdAt ? new Date(lead.createdAt) : new Date(),
         }));
       } catch (error) {
-        console.error('Vercel KV error:', error);
+        console.error('Redis connection error:', error);
         // Don't fall back silently - let the error bubble up
         throw error;
       }
@@ -54,9 +58,13 @@ export async function getLeads(): Promise<Lead[]> {
 // Save a new lead
 export async function saveLead(lead: Lead): Promise<void> {
   try {
-    // Try to use Vercel KV if available (only on Vercel)
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    // Try to use Redis if available (Vercel KV or other Redis)
+    const redisUrl = process.env.KV_REST_API_URL || process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
+    const redisToken = process.env.KV_REST_API_TOKEN || process.env.REDIS_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+    
+    if (redisUrl && redisToken) {
       try {
+        // Try Vercel KV first (@vercel/kv)
         const { kv } = await import('@vercel/kv');
         const leads = await getLeads();
         
@@ -70,7 +78,7 @@ export async function saveLead(lead: Lead): Promise<void> {
         await kv.set(LEADS_KEY, leads);
         return;
       } catch (error) {
-        console.error('Vercel KV save error:', error);
+        console.error('Redis save error:', error);
         // Don't fall back silently - let the error bubble up
         throw error;
       }
@@ -114,14 +122,18 @@ export async function updateLead(id: string, updates: Partial<Lead>): Promise<vo
       
       leads[index] = serializedLead as any;
       
-      // Try to use Vercel KV if available (only on Vercel)
-      if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      // Try to use Redis if available (Vercel KV or other Redis)
+      const redisUrl = process.env.KV_REST_API_URL || process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
+      const redisToken = process.env.KV_REST_API_TOKEN || process.env.REDIS_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+      
+      if (redisUrl && redisToken) {
         try {
+          // Try Vercel KV first (@vercel/kv)
           const { kv } = await import('@vercel/kv');
           await kv.set(LEADS_KEY, leads);
           return;
         } catch (error) {
-          console.error('Vercel KV update error:', error);
+          console.error('Redis update error:', error);
           // Don't fall back silently - let the error bubble up
           throw error;
         }
@@ -147,14 +159,20 @@ export async function deleteLead(id: string): Promise<void> {
     const leads = await getLeads();
     const filteredLeads = leads.filter((lead) => lead.id !== id);
     
-    // Try to use Vercel KV if available (only on Vercel)
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    // Try to use Redis if available (Vercel KV or other Redis)
+    const redisUrl = process.env.KV_REST_API_URL || process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
+    const redisToken = process.env.KV_REST_API_TOKEN || process.env.REDIS_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+    
+    if (redisUrl && redisToken) {
       try {
+        // Try Vercel KV first (@vercel/kv)
         const { kv } = await import('@vercel/kv');
         await kv.set(LEADS_KEY, filteredLeads);
         return;
       } catch (error) {
-        console.error('Vercel KV error, falling back to file system:', error);
+        console.error('Redis delete error:', error);
+        // Don't fall back silently - let the error bubble up
+        throw error;
       }
     }
     

@@ -8,7 +8,8 @@ export async function GET() {
   try {
     const leads = await getLeads();
     console.log(`[API] Fetched ${leads.length} leads`);
-    console.log(`[API] KV_URL: ${process.env.KV_REST_API_URL ? 'Set' : 'Not set'}`);
+    const redisUrl = process.env.KV_REST_API_URL || process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
+    console.log(`[API] Redis URL: ${redisUrl ? 'Set' : 'Not set'}`);
     return NextResponse.json(leads);
   } catch (error) {
     console.error('[API] Error fetching leads:', error);

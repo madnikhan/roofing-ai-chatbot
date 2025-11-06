@@ -1,0 +1,28 @@
+{
+  "name": "Roofing AI Chatbot",
+  "short_name": "Roofing AI",
+  "description": "AI-powered chatbot for roofing companies with emergency detection and lead qualification",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [],
+  "categories": ["business", "productivity"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Chat",
+      "short_name": "Chat",
+      "description": "Start a new chat",
+      "url": "/"
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View admin dashboard",
+      "url": "/dashboard"
+    }
+  ]
+}
+

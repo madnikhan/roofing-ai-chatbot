@@ -358,7 +358,11 @@ export function generateResponse(userMessage: string, conversationState: Convers
 /**
  * Determine next conversation step based on current state and user message
  */
-export function getNextStep(currentStep: string, userMessage: string, conversationState?: ConversationContext): string {
+export function getNextStep(
+  currentStep: 'greeting' | 'qualification' | 'scheduling' | 'completed',
+  userMessage: string,
+  conversationState?: ConversationContext
+): 'greeting' | 'qualification' | 'scheduling' | 'completed' {
   const lowerMessage = userMessage.toLowerCase();
   
   // Transition from greeting to qualification
